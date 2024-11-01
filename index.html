@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文本查询工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 16px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 16px;
+        }
+        .file-input {
+            width: 100%;
+            margin-bottom: 16px;
+        }
+        .input-group {
+            margin-bottom: 16px;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        .result {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            min-height: 100px;
+            word-wrap: break-word;
+        }
+        .status {
+            color: #666;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .copy-button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 16px;
+            cursor: pointer;
+        }
+        .copy-button:active {
+            background: #0056b3;
+        }
+        .instructions {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h2>文本查询工具</h2>
+            <p class="instructions">
+                1. 选择Excel文件（第一列为序号，第二列为文本）<br>
+                2. 输入序号查看对应文本<br>
+                3. 点击复制按钮或文本区域复制内容
+            </p>
+            <input type="file" class="file-input" accept=".xlsx,.xls" id="fileInput">
+            <div class="input-group">
+                <input type="number" id="indexInput" placeholder="请输入序号" min="1">
+            </div>
+            <div class="result" id="result" onclick="copyText()"></div>
+            <div class="status" id="status"></div>
+            <button class="copy-button" onclick="copyText()">复制文本</button>
+        </div>
+    </div>
+
+    <script>
+        let data = null;
+        const fileInput = document.getElementById('fileInput');
+        const indexInput = document.getElementById('indexInput');
+        const result = document.getElementById('result');
+        const status = document.getElementById('status');
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const workbook = XLSX.read(e.target.result, {type: 'binary'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    data = XLSX.utils.sheet_to_json(firstSheet);
+                    status.textContent = '文件加载成功！';
+                    indexInput.value = '';
+                    result.textContent = '';
+                } catch (error) {
+                    status.textContent = '文件加载失败，请检查文件格式';
+                }
+            };
+            
+            reader.readAsBinaryString(file);
+        });
+
+        indexInput.addEventListener('input', function() {
+            if (!data) {
+                status.textContent = '请先选择文件';
+                return;
+            }
+
+            const index = parseInt(this.value) - 1;
+            if (index >= 0 && index < data.length) {
+                // 获取第二列的值（假设它是对象中的第二个值）
+                const text = Object.values(data[index])[1];
+                result.textContent = text || '未找到文本';
+                status.textContent = '点击文本区域或按钮即可复制';
+            } else {
+                result.textContent = '';
+                status.textContent = '请输入有效的序号';
+            }
+        });
+
+        async function copyText() {
+            const text = result.textContent;
+            if (!text) return;
+            
+            try {
+                await navigator.clipboard.writeText(text);
+                status.textContent = '已复制到剪贴板';
+                setTimeout(() => {
+                    status.textContent = '点击文本区域或按钮即可复制';
+                }, 1000);
+            } catch (err) {
+                status.textContent = '复制失败，请手动复制';
+            }
+        }
+    </script>
+</body>
+</html>
