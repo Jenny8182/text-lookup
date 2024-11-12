@@ -1,192 +1,154 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文本查询工具</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <title>答案之书查询</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            margin: 0;
-            padding: 16px;
-            background-color: #f0f0f0;
-        }
-        .container {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             max-width: 600px;
             margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
         }
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 16px;
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        .file-input {
+        input {
             width: 100%;
-            margin-bottom: 16px;
-        }
-        .input-group {
-            margin-bottom: 16px;
-        }
-        input[type="number"] {
-            width: 100%;
-            padding: 12px;
+            padding: 10px;
             font-size: 16px;
             border: 1px solid #ddd;
-            border-radius: 8px;
+            border-radius: 5px;
+            margin-bottom: 20px;
             box-sizing: border-box;
         }
-        .result {
-            background: #f8f9fa;
-            padding: 16px;
-            border-radius: 8px;
-            min-height: 60px;
+        #result {
+            white-space: pre-wrap;
             word-wrap: break-word;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            min-height: 100px;
+            line-height: 1.5;
         }
-        .status {
-            color: #666;
-            font-size: 14px;
-            margin-top: 8px;
-            padding: 8px;
-            border-radius: 4px;
-            transition: background-color 0.3s;
+        .copy-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin-top: 10px;
+            width: 100%;
+            font-size: 16px;
         }
-        .status.success {
-            background-color: #e8f5e9;
-            color: #2e7d32;
+        .copy-btn:active {
+            background-color: #0056b3;
         }
-        .instructions {
-            font-size: 14px;
-            color: #666;
-            line-height: 1.4;
-            margin-bottom: 16px;
+        .error {
+            color: #dc3545;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="card">
-            <h2>文本查询工具</h2>
-            <p class="instructions">
-                1. 选择Excel文件（第一列为序号，第二列为文本）<br>
-                2. 输入序号后文本会自动复制到剪贴板
-            </p>
-            <input type="file" class="file-input" accept=".xlsx,.xls" id="fileInput">
-            <div class="input-group">
-                <input type="number" 
-                       id="indexInput" 
-                       placeholder="请输入序号" 
-                       min="1"
-                       inputmode="numeric"
-                       pattern="[0-9]*">
-            </div>
-            <div class="result" id="result"></div>
-            <div class="status" id="status"></div>
-        </div>
+        <input type="number" id="number" placeholder="请输入1-253之间的数字" pattern="[0-9]*">
+        <div id="result"></div>
+        <button class="copy-btn" onclick="copyText()">复制文本</button>
     </div>
 
+    <script src="data.js"></script>
     <script>
-        let data = null;
-        let copyTimeout = null;
-        const fileInput = document.getElementById('fileInput');
-        const indexInput = document.getElementById('indexInput');
-        const result = document.getElementById('result');
-        const status = document.getElementById('status');
+        // 问候语和结束语数组
+        const greetings = [
+            "亲爱的，",
+            "嗨宝儿～",
+            "宝儿你好呀，",
+            "宝宝，",
+            "宝儿，",
+            "乖乖，",
+            "乖，"
+        ];
 
-        // 显示状态信息的函数
-        function showStatus(message, isSuccess = false) {
-            status.textContent = message;
-            status.className = 'status' + (isSuccess ? ' success' : '');
-            
-            // 清除之前的定时器
-            if (copyTimeout) {
-                clearTimeout(copyTimeout);
-            }
-            
-            // 如果是成功消息，设置新的定时器使其自动消失
-            if (isSuccess) {
-                copyTimeout = setTimeout(() => {
-                    status.textContent = '';
-                    status.className = 'status';
-                }, 1500);
-            }
+        const endings = [
+            "希望能给你一些启发～",
+            "希望这个答案能帮助到你喔",
+            "愿你能从中获得灵感～"
+        ];
+
+        // 随机选择数组中的一个元素
+        function getRandomElement(array) {
+            return array[Math.floor(Math.random() * array.length)];
         }
 
-        fileInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            const reader = new FileReader();
+        // 格式化文本
+        function formatText(text) {
+            const greeting = getRandomElement(greetings);
+            const ending = getRandomElement(endings);
+            return `${greeting}${text} ${ending}`;
+        }
+
+        // 输入变化时立即处理
+        document.getElementById('number').addEventListener('input', function(e) {
+            const number = e.target.value;
+            const resultDiv = document.getElementById('result');
             
-            reader.onload = function(e) {
-                try {
-                    const workbook = XLSX.read(e.target.result, {type: 'binary'});
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    data = XLSX.utils.sheet_to_json(firstSheet);
-                    showStatus('文件加载成功！', true);
-                    indexInput.value = '';
-                    result.textContent = '';
-                } catch (error) {
-                    showStatus('文件加载失败，请检查文件格式');
-                }
-            };
-            
-            reader.readAsBinaryString(file);
+            if (!number) {
+                resultDiv.textContent = '';
+                return;
+            }
+
+            if (number < 1 || number > 253) {
+                resultDiv.innerHTML = '<span class="error">请输入1-253之间的数字</span>';
+                return;
+            }
+
+            const text = data[number];
+            if (text) {
+                resultDiv.textContent = formatText(text);
+            } else {
+                resultDiv.innerHTML = '<span class="error">未找到对应的文本</span>';
+            }
         });
 
-        // 使用防抖函数来避免频繁操作
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
-
-        // 处理文本查找和复制的函数
-        async function handleTextLookup() {
-            if (!data) {
-                showStatus('请先选择文件');
+        // 复制文本功能
+        function copyText() {
+            const resultDiv = document.getElementById('result');
+            const text = resultDiv.textContent;
+            
+            if (!text || resultDiv.querySelector('.error')) {
                 return;
             }
 
-            const index = parseInt(indexInput.value) - 1;
-            if (isNaN(index) || index < 0 || index >= data.length) {
-                result.textContent = '';
-                showStatus('请输入有效的序号');
-                return;
-            }
-
-            // 获取文本内容
-            const text = Object.values(data[index])[1];
-            if (!text) {
-                showStatus('未找到文本');
-                return;
-            }
-
-            // 显示文本
-            result.textContent = text;
-
-            // 尝试复制到剪贴板
-            try {
-                await navigator.clipboard.writeText(text);
-                showStatus('已自动复制到剪贴板！', true);
-            } catch (err) {
-                showStatus('复制失败，请手动复制文本');
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => {
+                    const btn = document.querySelector('.copy-btn');
+                    btn.textContent = '已复制！';
+                    setTimeout(() => {
+                        btn.textContent = '复制文本';
+                    }, 1000);
+                });
+            } else {
+                // 兼容旧版浏览器
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                
+                const btn = document.querySelector('.copy-btn');
+                btn.textContent = '已复制！';
+                setTimeout(() => {
+                    btn.textContent = '复制文本';
+                }, 1000);
             }
         }
-
-        // 为输入框添加防抖处理的事件监听器
-        indexInput.addEventListener('input', debounce(handleTextLookup, 300));
-
-        // 添加触摸事件监听器，在移动设备上更容易选择输入框
-        indexInput.addEventListener('touchstart', function(e) {
-            this.focus();
-        });
     </script>
 </body>
 </html>
