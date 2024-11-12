@@ -36,18 +36,16 @@
             min-height: 100px;
             line-height: 1.5;
         }
-        .copy-btn {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
+        .copy-status {
+            color: #28a745;
+            font-size: 14px;
             margin-top: 10px;
-            width: 100%;
-            font-size: 16px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
-        .copy-btn:active {
-            background-color: #0056b3;
+        .copy-status.show {
+            opacity: 1;
         }
         .error {
             color: #dc3545;
@@ -59,7 +57,7 @@
     <div class="container">
         <input type="number" id="number" placeholder="请输入1-253之间的数字" pattern="[0-9]*">
         <div id="result"></div>
-        <button class="copy-btn" onclick="copyText()">复制文本</button>
+        <div id="copyStatus" class="copy-status">已自动复制到剪贴板</div>
     </div>
 
     <script src="data.js"></script>
@@ -93,8 +91,30 @@
             return `${greeting}${text} ${ending}`;
         }
 
-        // 输入变化时立即处理
-        document.getElementById('number').addEventListener('input', function(e) {
+        // 显示复制状态
+        function showCopyStatus() {
+            const status = document.getElementById('copyStatus');
+            status.classList.add('show');
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, 1500);
+        }
+
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // 处理文本查询和复制
+        const handleInput = debounce(function(e) {
             const number = e.target.value;
             const resultDiv = document.getElementById('result');
             
@@ -110,45 +130,35 @@
 
             const text = data[number];
             if (text) {
-                resultDiv.textContent = formatText(text);
+                const formattedText = formatText(text);
+                resultDiv.textContent = formattedText;
+                
+                // 自动复制到剪贴板
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(formattedText)
+                        .then(() => {
+                            showCopyStatus();
+                        })
+                        .catch(err => {
+                            console.error('复制失败:', err);
+                        });
+                } else {
+                    // 兼容旧版浏览器
+                    const textarea = document.createElement('textarea');
+                    textarea.value = formattedText;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    showCopyStatus();
+                }
             } else {
                 resultDiv.innerHTML = '<span class="error">未找到对应的文本</span>';
             }
-        });
+        }, 300); // 300ms 的防抖延迟
 
-        // 复制文本功能
-        function copyText() {
-            const resultDiv = document.getElementById('result');
-            const text = resultDiv.textContent;
-            
-            if (!text || resultDiv.querySelector('.error')) {
-                return;
-            }
-
-            if (navigator.clipboard) {
-                navigator.clipboard.writeText(text).then(() => {
-                    const btn = document.querySelector('.copy-btn');
-                    btn.textContent = '已复制！';
-                    setTimeout(() => {
-                        btn.textContent = '复制文本';
-                    }, 1000);
-                });
-            } else {
-                // 兼容旧版浏览器
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                document.body.appendChild(textarea);
-                textarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textarea);
-                
-                const btn = document.querySelector('.copy-btn');
-                btn.textContent = '已复制！';
-                setTimeout(() => {
-                    btn.textContent = '复制文本';
-                }, 1000);
-            }
-        }
+        // 监听输入变化
+        document.getElementById('number').addEventListener('input', handleInput);
     </script>
 </body>
 </html>
